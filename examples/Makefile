@@ -17,6 +17,7 @@ obj-m += kbleds.o
 obj-m += sched.o
 obj-m += chardev2.o
 obj-m += syscall-steal.o
+obj-m += syscall-steal2.o
 obj-m += intrpt.o
 obj-m += completions.o
 obj-m += example_tasklet.o
