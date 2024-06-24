@@ -43,6 +43,15 @@
 
 #if defined(CONFIG_KPROBES)
 #define HAVE_KPROBES 1
+#if defined(CONFIG_X86_64)
+/* For x86 architecture, syscall table can no longer be used to invoke a syscall
+ * after the commit below:
+ * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1e3ad78334a69b36e107232e337f9d693dcc9df2
+ * So a hook on the syscall entry can be used instead to steal the syscall.
+ * Also, you can try defining USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL as 0 to use the old way on your kernel.
+ */
+#define USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL 1
+#endif
 #include <linux/kprobes.h>
 #else
 #define HAVE_PARAM 1
@@ -58,11 +67,33 @@ module_param(sym, ulong, 0644);
 
 #endif /* Version < v5.7 */
 
-static unsigned long **sys_call_table_stolen;
-
 /* UID we want to spy on - will be filled from the command line. */
 static uid_t uid = -1;
 module_param(uid, int, 0644);
+
+#if USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL
+
+/* The symbol name of the syscall to spy on. */
+static char *syscall_sym = "__x64_sys_openat";
+module_param(syscall_sym, charp, 0644);
+
+static int sys_call_kprobe_pre_handler(struct kprobe *p, struct pt_regs *regs)
+{
+    if (__kuid_val(current_uid()) != uid) {
+        return 0;
+    }
+
+    pr_info("%s called by %d\n", syscall_sym, uid);
+    return 0;
+}
+
+static struct kprobe syscall_kprobe = {
+    .symbol_name = "__x64_sys_openat",
+    .pre_handler = sys_call_kprobe_pre_handler,
+};
+#else
+
+static unsigned long **sys_call_table_stolen;
 
 /* A pointer to the original system call. The reason we keep this, rather
  * than call the original function (sys_openat), is because somebody else
@@ -202,9 +233,21 @@ static void disable_write_protection(void)
     clear_bit(16, &cr0);
     __write_cr0(cr0);
 }
+#endif
 
 static int __init syscall_steal_start(void)
 {
+#if USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL
+
+    int err;
+    syscall_kprobe.symbol_name = syscall_sym;
+    err = register_kprobe(&syscall_kprobe);
+    if (err) {
+        pr_err("register_kprobe() failed: %d\n", err);
+        return err;
+    }
+
+#else
     if (!(sys_call_table_stolen = acquire_sys_call_table()))
         return -1;
 
@@ -218,13 +261,17 @@ static int __init syscall_steal_start(void)
 
     enable_write_protection();
 
-    pr_info("Spying on UID:%d\n", uid);
+#endif
 
+    pr_info("Spying on UID:%d\n", uid);
     return 0;
 }
 
 static void __exit syscall_steal_end(void)
 {
+#if USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL
+    unregister_kprobe(&syscall_kprobe);
+#else
     if (!sys_call_table_stolen)
         return;
 
@@ -239,6 +286,7 @@ static void __exit syscall_steal_end(void)
     disable_write_protection();
     sys_call_table_stolen[__NR_openat] = (unsigned long *)original_call;
     enable_write_protection();
+#endif
 
     msleep(2000);
 }
