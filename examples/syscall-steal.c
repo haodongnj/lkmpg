@@ -44,11 +44,10 @@
 #if defined(CONFIG_KPROBES)
 #define HAVE_KPROBES 1
 #if defined(CONFIG_X86_64)
-/* For x86 architecture, syscall table can no longer be used to invoke a syscall
- * after the commit below:
- * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1e3ad78334a69b36e107232e337f9d693dcc9df2
- * So a hook on the syscall entry can be used instead to steal the syscall.
- * Also, you can try defining USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL as 0 to use the old way on your kernel.
+ /* For x86 architecture, the syscall table cannot be used to invoke a syscall
+ * after commit 1e3ad78.
+ * Use a hook on the syscall entry instead to intercept the syscall.
+ * Alternatively, set USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL to 0 to use the old method.
  */
 #define USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL 1
 #endif
