@@ -44,12 +44,14 @@
 #if defined(CONFIG_KPROBES)
 #define HAVE_KPROBES 1
 #if defined(CONFIG_X86_64)
- /* For x86 architecture, the syscall table cannot be used to invoke a syscall
- * after commit 1e3ad78.
- * Use a hook on the syscall entry instead to intercept the syscall.
- * Alternatively, set USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL to 0 to use the old method.
+/* For x86 architecture, the syscall table cannot be used to invoke a syscall
+ * after commit 1e3ad78 since v6.9. This commit has been backported to long 
+ * term stable kernels, like v5.15, v6.1, v6.6 and v6.8. In this case, use a 
+ * hook on the syscall entry instead to intercept the syscall.
+ * Set USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL to 1 to register a pre-handler
+ * before the syscall.
  */
-#define USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL 1
+#define USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL 0
 #endif
 #include <linux/kprobes.h>
 #else
