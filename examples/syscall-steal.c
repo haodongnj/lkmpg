@@ -47,7 +47,10 @@
 /* For x86 architecture, the syscall table cannot be used to invoke a syscall
  * after commit 1e3ad78 since v6.9. This commit has been backported to long 
  * term stable kernels, like v5.15, v6.1, v6.6 and v6.8. In this case, use a 
- * hook on the syscall entry instead to intercept the syscall.
+ * hook on the syscall entry instead to intercept the syscall. 
+ * For more details, see https://stackoverflow.com/questions/78599971/hooking-syscall-by-modifying-sys-call-table-does-not-work/78607015#78607015.
+ * If you have tried to use the syscall table to intercept syscalls and it 
+ * doesn't work, you can try to use Kprobes to intercept syscalls.
  * Set USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL to 1 to register a pre-handler
  * before the syscall.
  */
@@ -74,7 +77,10 @@ module_param(uid, int, 0644);
 
 #if USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL
 
-/* The symbol name of the syscall to spy on. */
+/* syscall_sym is the symbol name of the syscall to spy on. The default is
+ * "__x64_sys_openat", which can be changed by the module parameter. You can 
+ * look up the symbol name of a syscall in /proc/kallsyms.
+ */
 static char *syscall_sym = "__x64_sys_openat";
 module_param(syscall_sym, charp, 0644);
 
@@ -241,10 +247,12 @@ static int __init syscall_steal_start(void)
 #if USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL
 
     int err;
+    /* use symbol name from the module parameter */
     syscall_kprobe.symbol_name = syscall_sym;
     err = register_kprobe(&syscall_kprobe);
     if (err) {
-        pr_err("register_kprobe() failed: %d\n", err);
+        pr_err("register_kprobe() on %s failed: %d\n", syscall_sym, err);
+        pr_err("Please check the symbol name from 'syscall_sym' parameter.\n");
         return err;
     }
 
