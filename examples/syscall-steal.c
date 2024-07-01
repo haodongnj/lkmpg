@@ -44,12 +44,7 @@
 #if defined(CONFIG_KPROBES)
 #define HAVE_KPROBES 1
 #if defined(CONFIG_X86_64)
-/* For x86 architecture, the syscall table cannot be used to invoke a syscall
- * after commit 1e3ad78 since v6.9. This commit has been backported to long 
- * term stable kernels, like v5.15, v6.1, v6.6 and v6.8. In this case, use a 
- * hook on the syscall entry instead to intercept the syscall. 
- * For more details, see https://stackoverflow.com/questions/78599971/hooking-syscall-by-modifying-sys-call-table-does-not-work/78607015#78607015.
- * If you have tried to use the syscall table to intercept syscalls and it 
+/* If you have tried to use the syscall table to intercept syscalls and it 
  * doesn't work, you can try to use Kprobes to intercept syscalls.
  * Set USE_KPROBES_PRE_HANDLER_BEFORE_SYSCALL to 1 to register a pre-handler
  * before the syscall.
